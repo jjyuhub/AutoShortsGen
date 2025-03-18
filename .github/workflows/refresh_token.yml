@@ -83,6 +83,14 @@ jobs:
           python generate_token.py
           echo "refresh_token=$(cat refresh_token.txt)" >> $GITHUB_OUTPUT
       
+      - name: Run Python One-Liner
+        run: |
+          python -c "
+          import os
+          import glob
+          print('This is a test')
+          "
+      
       - name: Instructions for Setting up Secrets
         run: |
           echo "✅ Refresh Token Generated Successfully!"
