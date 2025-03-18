@@ -1,0 +1,87 @@
+name: YouTube API One-Time Setup
+on:
+  workflow_dispatch:
+    inputs:
+      auth_code:
+        description: 'Authorization code from the OAuth flow'
+        required: true
+        type: string
+
+jobs:
+  generate-refresh-token:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Dependencies
+        run: |
+          pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2
+      
+      - name: Create Client Secret File
+        env:
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+        run: |
+          echo "$CLIENT_SECRET_JSON" > client_secret.json
+          cat client_secret.json | jq .web.client_id
+      
+      - name: Generate Refresh Token
+        id: generate_token
+        run: |
+          python -c '
+import os
+import json
+import sys
+from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
+
+# Get the auth code from the workflow input
+auth_code = "${{ github.event.inputs.auth_code }}"
+if not auth_code:
+    print("::error::No authorization code provided. Please run the workflow with an auth code.")
+    sys.exit(1)
+
+# Load client secrets
+with open("client_secret.json", "r") as f:
+    client_config = json.load(f)
+
+# Create a flow instance
+flow = Flow.from_client_config(
+    client_config,
+    scopes=["https://www.googleapis.com/auth/youtube.upload"],
+    redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+)
+
+# Exchange auth code for credentials
+try:
+    flow.fetch_token(code=auth_code)
+    credentials = flow.credentials
+    
+    # Output the refresh token
+    print("::set-output name=refresh_token::" + credentials.refresh_token)
+    print("\n========== YOUR REFRESH TOKEN ==========")
+    print(credentials.refresh_token)
+    print("========================================\n")
+    print("Add this as a GitHub secret named YOUTUBE_REFRESH_TOKEN")
+    
+except Exception as e:
+    print("::error::Failed to exchange authorization code for tokens: " + str(e))
+    sys.exit(1)
+          '
+      
+      - name: Instructions for Setting up Secrets
+        run: |
+          echo "✅ Refresh Token Generated Successfully!"
+          echo "---------------------------------------------"
+          echo "Your refresh token is: ${{ steps.generate_token.outputs.refresh_token }}"
+          echo "---------------------------------------------"
+          echo "Instructions:"
+          echo "1. Go to your repository's Settings > Secrets and variables > Actions"
+          echo "2. Add a new repository secret named 'YOUTUBE_REFRESH_TOKEN'"
+          echo "3. Paste the refresh token as the value"
+          echo "4. The main workflow can now authenticate with YouTube automatically"
