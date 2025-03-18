@@ -31,8 +31,7 @@ jobs:
       
       - name: Create Token Generator Script
         run: |
-          tee generate_token.py > /dev/null << 'EOL'
-#!/usr/bin/env python3
+          echo '#!/usr/bin/env python3
 import os
 import json
 import sys
@@ -72,8 +71,7 @@ try:
     
 except Exception as e:
     print(f"::error::Failed to exchange authorization code for tokens: {str(e)}")
-    sys.exit(1)
-EOL
+    sys.exit(1)' > generate_token.py
       
       - name: Generate Refresh Token
         id: token
